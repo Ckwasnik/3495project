@@ -1,18 +1,29 @@
-const express = require('express');
-const { MongoClient } = require('mongodb');
+from flask import Flask, jsonify
+from pymongo import MongoClient
 
-const app = express();
-const url = "mongodb://mongo:27017/";
-const dbName = "analytics_db";
+app = Flask(__name__)
 
-app.get("/results", async (req, res) => {
-    const client = new MongoClient(url);
-    await client.connect();
-    const db = client.db(dbName);
-    const stats = await db.collection("stats").findOne({}, { sort: { _id: -1 } });
+# Connect to MongoDB
+mongo_client = MongoClient("mongodb://mongo:27017/")
+mongo_db = mongo_client["analytics_db"]
 
-    res.json(stats);
-    client.close();
-});
 
-app.listen(5003, () => console.log("Show Results running on port 5003"));
+@app.route("/results", methods=["GET"])
+def get_results():
+    """Fetch the latest analytics results from MongoDB."""
+    latest_result = mongo_db.stats.find_one({}, sort=[("_id", -1)])
+
+    if not latest_result:
+        return jsonify({"message": "No analytics data available yet"}), 404
+
+    return jsonify(
+        {
+            "max": latest_result.get("max"),
+            "min": latest_result.get("min"),
+            "avg": latest_result.get("avg"),
+        }
+    )
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5003)
